@@ -1,0 +1,54 @@
+name: build-publish
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: echo "${{ github.ref }}"
+
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: "1.17.0"
+    
+    - name: Install dependencies
+      run: |
+        go version
+        go get -u golang.org/x/lint/golint
+        
+    - name: Run build
+      run: go build . 
+      
+    - name: Run vet & lint
+      run: |
+        go vet .
+        golint .
+
+    - uses: google-github-actions/setup-gcloud@master
+      with:
+        version: "290.0.1"
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SA_KEY_GCR }}
+        export_default_credentials: true
+      if: github.ref == 'refs/heads/master'
+
+    - name: Configure docker auth for gcloud
+      run: gcloud auth configure-docker --quiet gcr.io
+      if: github.ref == 'refs/heads/master'
+
+    - name: Build
+      run: |
+        docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/surfboard-exporter:${{ github.sha }} -f Dockerfile .
+      if: github.ref == 'refs/heads/master'
+
+    - name: Publish
+      run: |
+        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/surfboard-exporter:${{ github.sha }}
+      if: github.ref == 'refs/heads/master'
+    
