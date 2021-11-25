@@ -12,3 +12,8 @@ surfboard_exporter --address 192.168.100.1 --port 9040
 | --address | Address of the modem's web interface |
 | --port -p | Metrics port |
 -->
+
+# Updated
+
+* Add support for modems with 8 channels
+* Add github actions

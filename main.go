@@ -101,16 +101,16 @@ func parseDownstream(s *goquery.Selection) {
 
 	// Downstream data is in the first table
 	// There are 4 downstream channels to parse. We'll do them at the same time
-	var ds [4]downstream
+	var ds [8]downstream
 
 	channels := s.Find("tr").Eq(1).ChildrenFiltered("td")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		value := getFieldValue(channels.Eq(1 + i).Text())
 		ds[i].channelID = value
 	}
 
 	frequency := s.Find("tr").Eq(2).ChildrenFiltered("td")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		value, err := strconv.ParseFloat(getFieldValue(frequency.Eq(1+i).Text()), 64)
 		if err != nil {
 			log.Warn(err)
@@ -120,7 +120,7 @@ func parseDownstream(s *goquery.Selection) {
 	}
 
 	snr := s.Find("tr").Eq(3).ChildrenFiltered("td")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		value, err := strconv.ParseFloat(getFieldValue(snr.Eq(1+i).Text()), 64)
 		if err != nil {
 			log.Warn(err)
@@ -130,13 +130,13 @@ func parseDownstream(s *goquery.Selection) {
 	}
 
 	mod := s.Find("tr").Eq(4).ChildrenFiltered("td")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		value := getFieldValue(mod.Eq(1 + i).Text())
 		ds[i].modulation = value
 	}
 
 	power := s.Find("tr").Eq(5).ChildrenFiltered("td")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		value, err := strconv.ParseFloat(getFieldValue(power.Eq(1+i).Text()), 64)
 		if err != nil {
 			log.Warn(err)
@@ -236,16 +236,16 @@ func parseUpstream(s *goquery.Selection) {
 
 func parseCodewords(s *goquery.Selection) {
 
-	var cw [4]codewords
+	var cw [8]codewords
 
 	channels := s.Find("tr").Eq(1).ChildrenFiltered("td")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		value := getFieldValue(channels.Eq(1 + i).Text())
 		cw[i].channelID = value
 	}
 
 	unerrored := s.Find("tr").Eq(2).ChildrenFiltered("td")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		value, err := strconv.ParseFloat(getFieldValue(unerrored.Eq(1+i).Text()), 64)
 		if err != nil {
 			log.Warn(err)
@@ -254,7 +254,7 @@ func parseCodewords(s *goquery.Selection) {
 	}
 
 	correctable := s.Find("tr").Eq(3).ChildrenFiltered("td")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		value, err := strconv.ParseFloat(getFieldValue(correctable.Eq(1+i).Text()), 64)
 		if err != nil {
 			log.Warn(err)
@@ -263,7 +263,7 @@ func parseCodewords(s *goquery.Selection) {
 	}
 
 	uncorrectable := s.Find("tr").Eq(4).ChildrenFiltered("td")
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		value, err := strconv.ParseFloat(getFieldValue(uncorrectable.Eq(1+i).Text()), 64)
 		if err != nil {
 			log.Warn(err)
