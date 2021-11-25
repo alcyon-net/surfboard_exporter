@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -42,20 +44,44 @@ type codewords struct {
 
 func main() {
 	var metricsHandler MetricsHandler
+	http.HandleFunc("/", rootHandler)
 	http.Handle("/metrics", metricsHandler)
 
 	log.Info("Listening on port 9040")
-	http.ListenAndServe(":9040", nil)
+	http.ListenAndServe(":9040", logRequest(http.DefaultServeMux))
 
+}
+
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "<html><body><div><h1>Surfboard Exporter</h1></div><ul><li><a href=\"/metrics\">/metrics</a></body></html>")
+}
+
+func logRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
+		handler.ServeHTTP(w, r)
+	})
 }
 
 // ServeHTTP scrapes the modem data and serves up the Prometheus metrics
 func (m MetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Parse the modem pages
-	parseSignalPage()
-	parseHelpPage()
-	parseAddressesPage()
+	err := parseSignalPage()
+
+	if err == nil {
+		err = parseHelpPage()
+	}
+
+	if err == nil {
+		err = parseAddressesPage()
+	}
+
+	if err != nil {
+		w.WriteHeader(500)
+		fmt.Fprintf(w, "ERROR: %s", err)
+		return
+	}
 
 	// Let promhttp serve up the metrics page
 	promHandler := promhttp.Handler()
@@ -67,26 +93,33 @@ func getPage(url string) *goquery.Document {
 
 	res, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		return nil
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		log.Fatal("status code error: ", res.StatusCode, res.Status)
+		log.Error(fmt.Sprintf("status code error: %s [%d] %s", url, res.StatusCode, res.Status))
+		return nil
 	}
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		return nil
 	}
 
 	return doc
 }
 
 // parseSignalPage parses the modem's signal page for upstream/downstream info
-func parseSignalPage() {
+func parseSignalPage() error {
 
 	// Get the document
 	page := getPage("http://192.168.100.1/cmSignalData.htm")
+
+	if page == nil {
+		return errors.New("Failed to fetch signal data")
+	}
 
 	// Get the centers on the page (these contain the tables)
 	centers := page.Find("html body").ChildrenFiltered("center")
@@ -95,6 +128,7 @@ func parseSignalPage() {
 	parseUpstream(centers.Eq(1).ChildrenFiltered("table"))
 	parseCodewords(centers.Eq(2).ChildrenFiltered("table"))
 
+	return nil
 }
 
 func parseDownstream(s *goquery.Selection) {
@@ -279,12 +313,16 @@ func parseCodewords(s *goquery.Selection) {
 
 }
 
-func parseAddressesPage() {
+func parseAddressesPage() error {
 
 	labels := prometheus.Labels{}
 
 	// Get the document
 	page := getPage("http://192.168.100.1/cmAddressData.htm")
+
+	if page == nil {
+		return errors.New("Failed to fetch address data")
+	}
 
 	// Get the centers on the page (these contain the tables)
 	centers := page.Find("html body").ChildrenFiltered("center")
@@ -302,16 +340,22 @@ func parseAddressesPage() {
 	labels["cpe_mac_status"] = tablerows.Eq(1).ChildrenFiltered("td").Eq(2).Text()
 
 	modemAddresses.With(labels).Set(1)
+
+	return nil
 }
 
 // parseHelpPage parses the modem's help page for hardward/firmware info
-func parseHelpPage() {
+func parseHelpPage() error {
 
 	// var labels prometheus.Labels
 	labels := make(map[string]string)
 
 	// Get the document
 	page := getPage("http://192.168.100.1/cmHelpData.htm")
+
+	if page == nil {
+		return errors.New("Failed to fetch help data")
+	}
 
 	// Get the tables on the page
 	tables := page.Find("html body table")
@@ -339,6 +383,8 @@ func parseHelpPage() {
 
 	// Set the metric
 	modemInfo.With(labels).Set(1)
+
+	return nil
 }
 
 func getFieldValue(text string) string {
